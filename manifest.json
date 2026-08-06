@@ -1,0 +1,15 @@
+{
+  "name": "Threads (concept)",
+  "short_name": "Threads",
+  "description": "Concept build: a like-for-like recreation of Meta's Threads, plus a monetization layer and standalone-platform differentiators.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "icons/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}
