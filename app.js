@@ -590,7 +590,7 @@ function submitCompose(replyTo){
   }else{
     route('home');
   }
-  toast(replyTo?'Reply posted':'Thread posted');
+  toast(replyTo?'Reply posted':'Posted');
 }
 
 function openPostDetail(postId){
@@ -600,7 +600,7 @@ function openPostDetail(postId){
   const author = userOf(root.authorId);
   openModal(`
     <div class="modal" style="max-width:600px;max-height:92vh">
-      <div class="modal-head"><button class="close-btn" data-action="close-modal">Close</button><div class="modal-title">Thread</div><span style="width:50px"></span></div>
+      <div class="modal-head"><button class="close-btn" data-action="close-modal">Close</button><div class="modal-title">Post</div><span style="width:50px"></span></div>
       <div class="detail-post">
         <div class="post-head">${avatarHTML(author)}<span class="post-name">${esc(author.name)}</span>${author.verified?icon('verified','verified'):''}<span class="spacer"></span><span class="post-time">${timeAgo(root.createdAt)}</span></div>
         <div class="post-text">${esc(root.text)}</div>
