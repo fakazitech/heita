@@ -291,7 +291,7 @@ function doSearch(q){
     users.slice(0,5).forEach(u=> html += profileRowHTML(u));
   }
   if(posts.length){
-    html += `<div class="label-sm" style="padding:0 16px">Threads</div>`;
+    html += `<div class="label-sm" style="padding:0 16px">Posts</div>`;
     posts.slice(0,10).forEach(p=> html += postCardHTML(p));
   }
   el.innerHTML = html || `<div class="empty">No results for "${esc(q)}"</div>`;
@@ -351,7 +351,7 @@ function renderProfile(userId){
     </div>
   </div>
   <div class="subtabs">
-    <div class="subtab ${tab==='threads'?'active':''}" data-action="profile-tab" data-t="threads">Threads</div>
+    <div class="subtab ${tab==='threads'?'active':''}" data-action="profile-tab" data-t="threads">Posts</div>
     <div class="subtab ${tab==='replies'?'active':''}" data-action="profile-tab" data-t="replies">Replies</div>
     <div class="subtab ${tab==='reposts'?'active':''}" data-action="profile-tab" data-t="reposts">Reposts</div>
   </div>
