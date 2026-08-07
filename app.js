@@ -123,7 +123,7 @@ function seed(){
 
   return {
     users, posts, sponsored, communities, hazards,
-    lists:[], notifications: buildNotifications(users, posts),
+    lists:[], savedRoutes:[], notifications: buildNotifications(users, posts),
     currentUserId:'u0',
     theme:'light',
     settings:{ portableIdentity:false, adFree:false, proSub:false, proPrice:6.99, subscriptionsEnabled:false, apiKey:null },
@@ -256,6 +256,7 @@ function postCardHTML(p, opts){
       </div>
       <div class="post-text">${esc(p.text)}</div>
       ${p.image?`<div class="post-image">image</div>`:''}
+      ${p.location?`<div class="location-chip" data-action="open-location" data-post="${p.id}">📍 ${esc(p.location.label)}${p.location.distanceKm?` · ${p.location.distanceKm.toFixed(1)} km`:''}</div>`:''}
       <div class="post-actions">
         <button class="pa-btn ${liked?'liked':''}" data-action="like" data-post="${p.id}">${icon('heart')}<span class="pa-count">${p.likes.length||''}</span></button>
         <button class="pa-btn" data-action="open-post" data-post="${p.id}">${icon('comment')}<span class="pa-count">${replyCount||''}</span></button>
@@ -385,6 +386,7 @@ function renderProfile(userId){
 }
 state.follows = state.follows || {};
 state.hazards = state.hazards || seedHazards(state.users);
+state.savedRoutes = state.savedRoutes || [];
 function followed(uid){ return !!state.follows[uid]; }
 
 /* ---------------- Phase 3: Pulse (real-time trending) ------------------ */
@@ -503,17 +505,42 @@ function renderRoutes(){
       <button class="pill solid" data-action="get-directions" style="flex:none">Go</button>
     </div>
   </div>
-  <div id="routeSummary" class="route-summary ${routeState.lastRoute?'':'hidden'}">
-    ${routeState.lastRoute?`<span><b>${routeState.lastRoute.distanceKm.toFixed(1)} km</b> route</span><span><b>${Math.round(routeState.lastRoute.durationMin)} min</b> drive</span>`:''}
-  </div>
+  <div id="routeSummary" class="route-summary ${routeState.lastRoute?'':'hidden'}">${routeSummaryHTML()}</div>
   <div id="routeMap"></div>
   <div class="hazard-legend">
     ${HAZARD_TYPES.map(h=>`<div class="hazard-legend-item">${hazardBadgeHTML(h.id)}${h.label}</div>`).join('')}
   </div>
   <div style="padding:12px 16px 0"><button class="pill solid" style="width:100%" data-action="open-report-hazard">Report a hazard</button></div>
-  <div class="section-title" style="font-size:16px;padding:16px 16px 4px">${routeState.lastRoute?'On your route':'Recent reports nearby'}</div>
+  <div class="section-title" style="font-size:16px;padding:16px 16px 4px">Saved routes</div>
+  <div id="savedRoutesList">${renderSavedRoutesHTML()}</div>
+  <div id="hazardSectionTitle" class="section-title" style="font-size:16px;padding:16px 16px 4px">${routeState.lastRoute?'On your route':'Recent reports nearby'}</div>
   <div id="hazardList">${renderHazardListHTML(currentHazardList())}</div>
   `;
+}
+
+function routeSummaryHTML(){
+  if(!routeState.lastRoute) return '';
+  return `<span><b>${routeState.lastRoute.distanceKm.toFixed(1)} km</b> route</span><span><b>${Math.round(routeState.lastRoute.durationMin)} min</b> drive</span><button class="pill small" style="margin-left:auto" data-action="save-route">☆ Save route</button>`;
+}
+// Patches the already-rendered Routes DOM in place after a route is
+// (re)computed — avoids a full route('routes') re-render, which would
+// tear down and recreate the Leaflet map for no reason.
+function refreshRouteUI(){
+  const summaryEl = document.getElementById('routeSummary');
+  if(summaryEl){ summaryEl.classList.toggle('hidden', !routeState.lastRoute); summaryEl.innerHTML = routeSummaryHTML(); }
+  const titleEl = document.getElementById('hazardSectionTitle');
+  if(titleEl) titleEl.textContent = routeState.lastRoute ? 'On your route' : 'Recent reports nearby';
+  const listEl = document.getElementById('hazardList');
+  if(listEl) listEl.innerHTML = renderHazardListHTML(currentHazardList());
+}
+
+function renderSavedRoutesHTML(){
+  if(!state.savedRoutes.length) return `<div class="empty">No saved routes yet — get directions, then tap "Save route."</div>`;
+  return state.savedRoutes.map(r=>`
+    <div class="list-row" data-action="load-saved-route" data-id="${r.id}">
+      <div><div style="font-weight:700">${esc(r.name)}</div><div class="post-time">${esc(r.fromText)} → ${esc(r.toText)}</div></div>
+      <button class="close-btn" data-action="delete-saved-route" data-id="${r.id}" title="Remove">✕</button>
+    </div>`).join('');
 }
 
 function currentHazardList(){
@@ -575,6 +602,11 @@ function initRouteMap(){
   });
 
   if(routeState.lastRoute) drawRoute(routeState.lastRoute.coords, false);
+
+  if(routeState.pendingCenter){
+    map.setView([routeState.pendingCenter.lat, routeState.pendingCenter.lng], 15);
+    routeState.pendingCenter = null;
+  }
 }
 
 function divIcon(html, size){
@@ -661,13 +693,88 @@ async function getDirections(){
     if(!route){ toast('No route found between those points'); return; }
     routeState.lastRoute = route;
     drawRoute(route.coords, true);
-    document.getElementById('routeSummary').classList.remove('hidden');
-    document.getElementById('routeSummary').innerHTML = `<span><b>${route.distanceKm.toFixed(1)} km</b> route</span><span><b>${Math.round(route.durationMin)} min</b> drive</span>`;
-    document.querySelector('.section-title[style*="font-size:16px"]').textContent = 'On your route';
-    document.getElementById('hazardList').innerHTML = renderHazardListHTML(currentHazardList());
+    refreshRouteUI();
     toast('Route found');
   }catch(e){
     toast('Routing service unavailable — try again in a moment');
+  }
+}
+
+function openSaveRouteModal(){
+  if(!routeState.lastRoute){ toast('Get directions first'); return; }
+  const defaultName = `${routeState.currentText} → ${routeState.destText}`;
+  openModal(`
+    <div class="modal">
+      <div class="modal-head"><button class="close-btn" data-action="close-modal">Cancel</button><div class="modal-title">Save route</div><span style="width:50px"></span></div>
+      <div class="modal-body">
+        <input class="field" id="routeNameInput" value="${esc(defaultName)}" placeholder="Route name">
+        <button class="pill solid" style="width:100%;margin-top:14px" data-action="confirm-save-route">Save</button>
+      </div>
+    </div>`);
+  setTimeout(()=>document.getElementById('routeNameInput')?.focus(), 30);
+}
+function confirmSaveRoute(){
+  const input = document.getElementById('routeNameInput');
+  const name = (input && input.value.trim()) || `${routeState.currentText} → ${routeState.destText}`;
+  state.savedRoutes.unshift({
+    id:'sr'+Date.now(), name,
+    fromText: routeState.currentText, toText: routeState.destText,
+    fromCoord: routeState.currentCoord, toCoord: routeState.destCoord,
+    createdAt: Date.now(),
+  });
+  save();
+  closeModal();
+  const listEl = document.getElementById('savedRoutesList');
+  if(listEl) listEl.innerHTML = renderSavedRoutesHTML();
+  toast('Route saved');
+}
+function deleteSavedRoute(id){
+  state.savedRoutes = state.savedRoutes.filter(r=>r.id!==id);
+  save();
+  const listEl = document.getElementById('savedRoutesList');
+  if(listEl) listEl.innerHTML = renderSavedRoutesHTML();
+  toast('Removed');
+}
+async function loadSavedRoute(id){
+  const r = state.savedRoutes.find(x=>x.id===id);
+  if(!r) return;
+  routeState.currentText = r.fromText; routeState.destText = r.toText;
+  routeState.currentCoord = r.fromCoord; routeState.destCoord = r.toCoord;
+  routeState.lastRoute = null;
+  route('routes');
+  toast('Loading route…');
+  try{
+    const rt = await fetchRoute(r.fromCoord, r.toCoord);
+    if(!rt){ toast('Could not load that route right now'); return; }
+    routeState.lastRoute = rt;
+    drawRoute(rt.coords, true);
+    refreshRouteUI();
+  }catch(e){
+    toast('Could not load that route right now');
+  }
+}
+
+// Location chip on a post -> jump to Routes centered on (or routed to)
+// wherever that post was attached to.
+async function openLocationFromPost(postId){
+  const p = postOf(postId);
+  if(!p || !p.location) return;
+  const loc = p.location;
+  closeModal();
+  if(loc.kind==='route'){
+    routeState.currentText = loc.label.split(' → ')[0] || '';
+    routeState.destText = (loc.label.split(' → ')[1]||'').split(' · ')[0] || '';
+    routeState.currentCoord = loc.fromCoord;
+    routeState.destCoord = loc.toCoord;
+    routeState.lastRoute = null;
+    route('routes');
+    try{
+      const rt = await fetchRoute(loc.fromCoord, loc.toCoord);
+      if(rt){ routeState.lastRoute = rt; drawRoute(rt.coords, true); refreshRouteUI(); }
+    }catch(e){ toast('Could not reload that route right now'); }
+  }else if(loc.kind==='hazard'){
+    routeState.pendingCenter = {lat:loc.lat, lng:loc.lng};
+    route('routes');
   }
 }
 
@@ -682,7 +789,11 @@ function openReportHazard(){
           ${HAZARD_TYPES.map(h=>`<button data-action="pick-category" data-cat="${h.id}">${hazardBadgeHTML(h.id)}${esc(h.label)}</button>`).join('')}
         </div>
         <textarea class="field" id="hazardNote" placeholder="What's going on? (optional)" style="min-height:60px"></textarea>
-        <button class="pill solid" style="width:100%;margin-top:12px" data-action="submit-hazard-report">Submit report</button>
+        <label class="row-flex" style="cursor:pointer;padding-top:12px">
+          <span class="row-label" style="font-weight:600;font-size:13px">Also share to feed</span>
+          <input type="checkbox" id="shareHazardToFeed">
+        </label>
+        <button class="pill solid" style="width:100%;margin-top:8px" data-action="submit-hazard-report">Submit report</button>
       </div>
     </div>`);
 }
@@ -693,12 +804,22 @@ function pickCategory(cat, el){
 function submitHazardReport(){
   if(!routeState.pickCategory){ toast('Pick a category first'); return; }
   const note = document.getElementById('hazardNote').value.trim();
+  const shareToFeed = document.getElementById('shareHazardToFeed')?.checked;
   const coord = routeState.reportCoord || (routeState.map ? routeState.map.getCenter() : JHB_CENTER);
+  const meta = hazardMeta(routeState.pickCategory);
   state.hazards.unshift({
     id:'hz'+Date.now(), type:routeState.pickCategory,
     lat: coord.lat, lng: coord.lng, note,
     authorId: meId(), createdAt: Date.now(),
   });
+  if(shareToFeed){
+    state.posts.unshift({
+      id:'p'+Date.now(), authorId: meId(),
+      text: note ? `${meta.label} reported: ${note}` : `${meta.label} reported nearby — check Routes for the exact spot.`,
+      createdAt: Date.now(), likes:[], reposts:[], replyTo:null, image:false, tag:null,
+      location: {kind:'hazard', label: meta.label, lat: coord.lat, lng: coord.lng},
+    });
+  }
   save();
   closeModal();
   routeState.reportCoord = null;
@@ -706,7 +827,7 @@ function submitHazardReport(){
   plotHazards();
   const list = document.getElementById('hazardList');
   if(list) list.innerHTML = renderHazardListHTML(currentHazardList());
-  toast('Hazard reported — thanks for the heads up');
+  toast(shareToFeed ? 'Hazard reported and shared to your feed' : 'Hazard reported — thanks for the heads up');
 }
 
 /* ---------------- Phase 2: Creator Studio / monetization ---------------- */
@@ -837,6 +958,11 @@ function openCompose(replyTo){
             <textarea id="composeInput" placeholder="${root?'Reply to '+userOf(root.authorId).name:"Say something"}" autofocus></textarea>
           </div>
         </div>
+        ${(!root && routeState.lastRoute)?`
+        <label class="row-flex" style="cursor:pointer">
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:16px">📍</span>${esc(routeState.currentText)} → ${esc(routeState.destText)} · ${routeState.lastRoute.distanceKm.toFixed(1)} km</span>
+          <input type="checkbox" id="attachRouteToggle">
+        </label>`:''}
         <div class="compose-foot">
           <span class="post-time">Open to replies</span>
           <button class="pill solid" data-action="submit-compose" data-reply="${root?root.id:''}">Post</button>
@@ -848,7 +974,13 @@ function openCompose(replyTo){
 function submitCompose(replyTo){
   const text = document.getElementById('composeInput').value.trim();
   if(!text) return;
-  const p = {id:'p'+Date.now(), authorId: meId(), text, createdAt: Date.now(), likes:[], reposts:[], replyTo: replyTo||null, image:false, tag:null};
+  const attachToggle = document.getElementById('attachRouteToggle');
+  const location = (!replyTo && attachToggle && attachToggle.checked && routeState.lastRoute) ? {
+    kind:'route', label:`${routeState.currentText} → ${routeState.destText}`,
+    fromCoord: routeState.currentCoord, toCoord: routeState.destCoord,
+    distanceKm: routeState.lastRoute.distanceKm, durationMin: routeState.lastRoute.durationMin,
+  } : null;
+  const p = {id:'p'+Date.now(), authorId: meId(), text, createdAt: Date.now(), likes:[], reposts:[], replyTo: replyTo||null, image:false, tag:null, location};
   state.posts.unshift(p);
   save(); closeModal();
   if(replyTo){
@@ -1089,6 +1221,11 @@ document.body.addEventListener('click', e=>{
     case 'open-report-hazard': openReportHazard(); break;
     case 'pick-category': pickCategory(el.dataset.cat, el); break;
     case 'submit-hazard-report': submitHazardReport(); break;
+    case 'save-route': openSaveRouteModal(); break;
+    case 'confirm-save-route': confirmSaveRoute(); break;
+    case 'load-saved-route': loadSavedRoute(el.dataset.id); break;
+    case 'delete-saved-route': deleteSavedRoute(el.dataset.id); e.stopPropagation(); break;
+    case 'open-location': openLocationFromPost(el.dataset.post); e.stopPropagation(); break;
   }
 });
 document.body.addEventListener('input', e=>{

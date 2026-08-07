@@ -117,6 +117,15 @@ Threads (or Instagram) has ever done:
   just "everything nearby."
 - **"Use my location"** via the browser's Geolocation API, reverse-
   geocoded into a readable address.
+- **Saved routes.** Once you've got directions, "☆ Save route" stores the
+  from/to pair under a name you pick; the Saved routes list below re-runs
+  the route (a fresh OSRM call, not a cached polyline) when you tap it.
+- **Attach a route to a post.** Composing a new (non-reply) post while a
+  route is active offers a toggle to attach it — the post shows a small
+  location chip (place + distance) that, tapped, jumps back to Routes with
+  that exact route redrawn. Reporting a hazard has the same idea in
+  reverse: an "Also share to feed" checkbox posts about it with a chip
+  linking back to that spot on the map.
 
 ## Open next steps
 
