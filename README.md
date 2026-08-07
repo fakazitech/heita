@@ -1,20 +1,21 @@
-# Threads (concept build)
+# Heita
 
-A standalone prototype: a like-for-like recreation of Meta's Threads,
-plus a monetization layer and the product differentiators that would make
-it a standalone app instead of an Instagram appendage.
+A standalone social app that started as a like-for-like recreation of
+Meta's Threads, then grew a monetization layer and its own product
+identity — so it's no longer just an Instagram appendage wearing a
+different name.
 
-**Live demo:** https://fakazitech.github.io/threads/ *(GitHub Pages, deployed from the `main` branch)*
+**Live demo:** https://fakazitech.github.io/heita/ *(GitHub Pages, deployed from the `main` branch)*
 
 See [`CONCEPT.md`](CONCEPT.md) for the market/product analysis this build
 is based on — why Threads' potential is real, where it's actually missing
-things, and where a new entrant could win.
+things, and where a new entrant (this one) could win.
 
 No build step, no framework, no backend — open `index.html` and it runs.
 Run it locally: `python3 -m http.server 8080`, then open `localhost:8080`.
 
 ```
-threads/
+heita/
 ├── index.html   → shell, layout, all CSS
 ├── app.js       → state, rendering, interactions
 ├── manifest.json
@@ -26,26 +27,27 @@ threads/
 
 This recreates Threads' *look and interaction model* (layout, monochrome
 palette, iconography style, information architecture) as a private
-concept exploration. It does not use Meta's actual logo asset, brand
-font, or any Meta trademark — the mark in the top-left is an original
-abstract squiggle inspired by, not copied from, the real one. Don't
-mistake this for an official Meta product, and don't build a commercial
-launch on the name/branding without your own legal review — this is a
-teardown-and-rebuild exercise, not a trademark clearance.
+concept exploration — the starting point for what's now its own app,
+Heita. It does not use Meta's actual logo asset, brand font, or any Meta
+trademark — the mark in the top-left is an original abstract squiggle
+inspired by, not copied from, the real one. Don't mistake this for an
+official Meta product, and don't build a wider commercial launch without
+your own legal/trademark review — this repo is a teardown-and-rebuild
+exercise, not a clearance.
 
 ## What's real vs. mocked
 
 - **Real:** all UI, all interactions (like, reply, repost, follow, post,
   join a community, build a list, toggle settings), all state transitions.
 - **Mocked:** the backend. There's no server — everything lives in
-  `localStorage` under the key `threads_proto_v1`. Seed data (14 users, ~25
+  `localStorage` under the key `heita_proto_v1`. Seed data (14 users, ~25
   posts) is generated on first load. "Sponsored" posts, tips, ad-revenue
   payouts, and API keys are all simulated client-side; nothing charges a
   card or calls a real endpoint. Federation (ActivityPub/AT Proto) is a
   labelled toggle, not a live connection to the fediverse.
 - Reset the prototype anytime from **Settings → Reset prototype data**.
 
-## Phase 1 — like-for-like recreation
+## Phase 1 — like-for-like recreation (the starting point)
 
 Pure monochrome palette (`#fff`/`#000` light, near-black `#000`/`#f5f5f5`
 dark — Threads' actual tokens, not an approximation), system-font stack
@@ -57,13 +59,13 @@ compose modal, and the threaded reply view.
 
 ## Phase 2 — monetization layer
 
-Everything here is new relative to the real app:
+Everything here is new relative to the app this was cloned from:
 
 - **Native sponsored posts** in the Home feed (clearly labelled, capped
-  frequency), which disappear entirely under Threads Pro or the
-  standalone ad-free toggle.
-- **Threads Pro subscription** (Settings) — ad-free browsing, a Pro
-  badge, priced by the creator.
+  frequency), which disappear entirely under Heita Pro or the standalone
+  ad-free toggle.
+- **Heita Pro subscription** (Settings) — ad-free browsing, a Pro badge,
+  priced by the creator.
 - **Creator subscriptions** (Creator Studio) — a creator sets a monthly
   price and can gate subscriber-only threads.
 - **Tipping** — a one-tap "send a gift" action on any post that isn't yours.

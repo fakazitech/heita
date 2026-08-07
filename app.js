@@ -1,15 +1,16 @@
 /* ==========================================================================
-   Threads — concept build
-   Phase 1: like-for-like recreation (layout, colour, interaction model).
+   Heita — concept build
+   Started as a like-for-like recreation of Meta's Threads (layout, colour,
+   interaction model), then grew its own identity:
    Phase 2: monetization layer (sponsored posts, Pro subscriptions, tipping,
             Creator Studio earnings).
    Phase 3: the differentiators that make this a standalone product instead
             of an Instagram appendage (Pulse real-time ranking, Communities,
             Lists, portable identity, open API, keyboard-driven power use).
-   No backend: everything lives in localStorage. See threads/README.md.
+   No backend: everything lives in localStorage. See README.md.
    ========================================================================== */
 
-const STORE_KEY = 'threads_proto_v1';
+const STORE_KEY = 'heita_proto_v1';
 const NOW = Date.now();
 const MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
@@ -107,7 +108,7 @@ function seed(){
   });
 
   const sponsored = [
-    {id:'s0', brand:'Aria Running Co.', handle:'ariarunning', color:'#0891b2', text:'Race day is closer than you think. New carbon-plate trainers, 20% off for Threads.', cta:'Shop now'},
+    {id:'s0', brand:'Aria Running Co.', handle:'ariarunning', color:'#0891b2', text:'Race day is closer than you think. New carbon-plate trainers, 20% off for Heita.', cta:'Shop now'},
     {id:'s1', brand:'FocusMail', handle:'focusmail', color:'#4f46e5', text:'The inbox that unsubscribes itself. Try it free for 30 days.', cta:'Learn more'},
   ];
 
@@ -175,14 +176,14 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 /* ---------------------------------------------------------------------- */
 /* Router                                                                   */
 /* ---------------------------------------------------------------------- */
-const TITLES = {home:'Threads', search:'Search', activity:'Activity', profile:'Profile', pulse:'Pulse', communities:'Communities', lists:'Lists', studio:'Creator Studio', settings:'Settings'};
+const TITLES = {home:'Heita', search:'Search', activity:'Activity', profile:'Profile', pulse:'Pulse', communities:'Communities', lists:'Lists', studio:'Creator Studio', settings:'Settings'};
 let currentTab = 'home';
 let currentSub = {}; // e.g. {profileTab:'threads', profileUserId, communityId, listId}
 
 function route(tab, extra){
   currentTab = tab;
   currentSub = extra||{};
-  document.getElementById('tbTitle').textContent = TITLES[tab]||'Threads';
+  document.getElementById('tbTitle').textContent = TITLES[tab]||'Heita';
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const main = document.getElementById('main');
   main.scrollTop = 0;
@@ -502,7 +503,7 @@ function renderSettings(){
   </div>
 
   <div class="studio-block">
-    <h3>Threads Pro</h3>
+    <h3>Heita Pro</h3>
     <p>Ad-free browsing, a subscriber badge, and priority in replies.</p>
     <div class="row-flex">
       <div><div class="row-label">Subscribe — $${s.proPrice}/mo</div><div class="row-desc">Removes sponsored posts from your Home feed.</div></div>

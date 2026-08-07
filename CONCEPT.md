@@ -1,10 +1,10 @@
 # Project: Threads — Opportunity Analysis
 
-> **Status:** Concept / exploratory. This is a standalone market and product
-> analysis of Meta's Threads app, kept in this repo as a "project concept"
-> brief. It is **not** part of the SwopIt product — nothing here changes
-> `app/` or `website/`. Treat it the way the rest of `docs/` treats
-> speculative material: clearly labelled, not wired into anything live.
+> **Status:** Concept / exploratory. This is the market and product
+> analysis Heita was built from — a teardown of Meta's Threads app: why
+> its potential is real, and where it's actually missing things. The
+> "Where the opportunity sits" and "Open questions" sections below became
+> this repo's actual build (see [`README.md`](README.md) for what shipped).
 >
 > Knowledge cutoff for the author of this doc is January 2026, so anything
 > claimed about Threads' *current* feature set should be spot-checked

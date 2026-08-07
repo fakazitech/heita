@@ -1,4 +1,4 @@
-const CACHE = 'threads-concept-v1';
+const CACHE = 'heita-v1';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', e=>{

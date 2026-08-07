@@ -1,7 +1,7 @@
 {
-  "name": "Threads (concept)",
-  "short_name": "Threads",
-  "description": "Concept build: a like-for-like recreation of Meta's Threads, plus a monetization layer and standalone-platform differentiators.",
+  "name": "Heita",
+  "short_name": "Heita",
+  "description": "A standalone social app that started as a like-for-like recreation of Meta's Threads, then added monetization and its own product differentiators.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
