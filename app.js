@@ -552,7 +552,7 @@ function renderHazardListHTML(list){
   if(!list.length) return `<div class="empty">${routeState.lastRoute?'No reports along this route right now.':'No reports yet — be the first.'}</div>`;
   return list.map(h=>{
     const author = userOf(h.authorId);
-    return `<div class="hazard-item">
+    return `<div class="hazard-item" data-action="focus-hazard" data-id="${h.id}">
       ${hazardBadgeHTML(h.type)}
       <div class="hazard-body">
         <div class="hazard-type">${esc(hazardMeta(h.type).label)}</div>
@@ -561,6 +561,17 @@ function renderHazardListHTML(list){
       </div>
     </div>`;
   }).join('');
+}
+// Tapping a report in the list jumps the live map to that pin and opens its
+// popup — mirrors how a location chip on a post jumps into Routes.
+function focusHazard(id){
+  const h = state.hazards.find(x=>x.id===id);
+  if(!h) return;
+  if(!routeState.map){ toast('Map not loaded'); return; }
+  routeState.map.setView([h.lat, h.lng], 16);
+  const marker = routeState.hazardMarkers && routeState.hazardMarkers[id];
+  if(marker) marker.openPopup();
+  document.getElementById('routeMap')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 function haversineKm(lat1,lon1,lat2,lon2){
@@ -636,12 +647,14 @@ function divIcon(html, size){
 function plotHazards(){
   if(!routeState.hazardLayer) return;
   routeState.hazardLayer.clearLayers();
+  routeState.hazardMarkers = {};
   state.hazards.forEach(h=>{
     const meta = hazardMeta(h.type);
     const icon = divIcon(`<div class="hazard-badge ${h.type}" style="box-shadow:0 1px 4px rgba(0,0,0,.4)">${meta.emoji}</div>`, 30);
     const author = userOf(h.authorId);
-    L.marker([h.lat, h.lng], {icon}).addTo(routeState.hazardLayer)
+    const marker = L.marker([h.lat, h.lng], {icon}).addTo(routeState.hazardLayer)
       .bindPopup(`<b>${esc(meta.label)}</b><br>${esc(h.note||'')}<br><small>${author?esc(author.name):'Heita user'} · ${timeAgo(h.createdAt)}</small>`);
+    routeState.hazardMarkers[h.id] = marker;
   });
 }
 
@@ -1255,6 +1268,7 @@ document.body.addEventListener('click', e=>{
     case 'load-saved-route': loadSavedRoute(el.dataset.id); break;
     case 'delete-saved-route': deleteSavedRoute(el.dataset.id); e.stopPropagation(); break;
     case 'open-location': openLocationFromPost(el.dataset.post); e.stopPropagation(); break;
+    case 'focus-hazard': focusHazard(el.dataset.id); break;
   }
 });
 document.body.addEventListener('input', e=>{

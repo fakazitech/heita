@@ -110,7 +110,8 @@ Threads (or Instagram) has ever done:
 - **Hazard reports** — police, accidents, road hazards, and disasters,
   seeded around Johannesburg plus anything you report. Reporting drops a
   pin at your last map click (or the current map center), picks a
-  category, and an optional note.
+  category, and an optional note. Tapping a report in the list jumps the
+  map to that exact pin and opens its popup.
 - **Route-aware filtering** — once you've got directions, the hazard list
   below the map narrows to reports within ~600m of your actual route
   (haversine distance to the nearest point on the route line), instead of
