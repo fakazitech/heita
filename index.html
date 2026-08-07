@@ -13,6 +13,9 @@
 <meta name="apple-mobile-web-app-title" content="Heita">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/icon.svg">
+<!-- Routes: OpenStreetMap tiles + Leaflet for the map, no API key needed. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ============ tokens ============ */
 :root{
@@ -159,6 +162,35 @@ html[data-theme="dark"] .post-image{background:linear-gradient(135deg,#1c1c1c,#1
 /* lists */
 .list-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border-soft);cursor:pointer;}
 .list-row:hover{background:var(--bg-sunken);}
+
+/* routes */
+.route-form{padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
+.route-field-row{display:flex;gap:8px;align-items:center;}
+.route-field-row .field{flex:1;}
+.loc-btn{background:none;border:1px solid var(--border);border-radius:10px;width:42px;height:42px;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);}
+.loc-btn svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:2;}
+.route-summary{display:flex;gap:16px;padding:0 16px 10px;font-size:13px;color:var(--text-secondary);}
+.route-summary b{color:var(--text);font-size:15px;}
+#routeMap{height:280px;width:100%;background:var(--bg-sunken);}
+.hazard-legend{display:flex;gap:12px;padding:10px 16px;flex-wrap:wrap;border-bottom:1px solid var(--border-soft);}
+.hazard-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary);}
+.hazard-badge{width:20px;height:20px;border-radius:30%;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none;}
+.hazard-badge.police{background:#2563eb;}
+.hazard-badge.accident{background:#e8590c;}
+.hazard-badge.hazard{background:#ca8a04;}
+.hazard-badge.disaster{background:#d4183d;}
+.hazard-item{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-soft);align-items:flex-start;}
+.hazard-item .hazard-badge{width:32px;height:32px;font-size:16px;}
+.hazard-body{flex:1;min-width:0;}
+.hazard-type{font-weight:700;font-size:14px;text-transform:capitalize;}
+.hazard-note{font-size:13px;color:var(--text-secondary);margin-top:2px;}
+.hazard-meta{font-size:12px;color:var(--text-tertiary);margin-top:2px;}
+.report-fab{position:sticky;bottom:10px;margin:10px 16px 0;display:flex;justify-content:center;}
+.category-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
+.category-pick button{border:2px solid var(--border);background:var(--bg);border-radius:12px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:var(--text);font-size:13px;font-weight:600;}
+.category-pick button.picked{border-color:var(--brand);}
+.category-pick .hazard-badge{width:30px;height:30px;font-size:15px;}
+.leaflet-div-icon{background:none;border:none;}
 
 /* studio */
 .studio-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px;}

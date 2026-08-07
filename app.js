@@ -119,14 +119,38 @@ function seed(){
     {id:'c3', name:'Design Crit', icon:'🎨', desc:'Post work, get real feedback, no vague praise.', members:3980, tag:null, joined:false},
   ];
 
+  const hazards = seedHazards(users);
+
   return {
-    users, posts, sponsored, communities,
+    users, posts, sponsored, communities, hazards,
     lists:[], notifications: buildNotifications(users, posts),
     currentUserId:'u0',
     theme:'light',
     settings:{ portableIdentity:false, adFree:false, proSub:false, proPrice:6.99, subscriptionsEnabled:false, apiKey:null },
     studio:{ subscribers:0, tipsTotal:0, adShare:0, boostCredits:2 },
   };
+}
+
+/* ---------------- Routes: hazard seed data ------------------------------ */
+// Centered on Johannesburg — the N1/M1 interchange area, so seeded pins sit
+// on real roads a demo route between two Joburg points is likely to cross.
+function seedHazards(users){
+  const spots = [
+    {lat:-26.1952, lng:28.0426, type:'police',   note:'Speed trap on the N1 southbound, just past the M1 split.'},
+    {lat:-26.2041, lng:28.0473, type:'accident',  note:'Fender-bender blocking the left lane on Jan Smuts Ave.'},
+    {lat:-26.1715, lng:28.0424, type:'hazard',    note:'Pothole opened up after the rain — deep enough to take a rim out.'},
+    {lat:-26.1467, lng:28.0338, type:'disaster',  note:'Flooding under the Grayston overpass, avoid if you can.'},
+    {lat:-26.2309, lng:28.0645, type:'police',    note:'Roadblock checking licences near the M2.'},
+    {lat:-26.1076, lng:28.0567, type:'hazard',    note:'Load-shedding — robots down at the Sandton Drive intersection.'},
+    {lat:-26.2678, lng:27.9852, type:'accident',  note:'Multi-car pile-up on the N1 near Soweto off-ramp, expect delays.'},
+  ];
+  return spots.map((s,i)=>({
+    id:'hz'+i, ...s,
+    // 1 + (...)%(len-1) skips index 0 ("You") on purpose — seeded reports
+    // are supposed to read as other users, not the person opening the app.
+    authorId: users[1 + (i*4+2)%(users.length-1)].id,
+    createdAt: NOW - Math.floor(Math.random()*90)*MIN,
+  }));
 }
 
 function buildNotifications(users, posts){
@@ -176,7 +200,7 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 /* ---------------------------------------------------------------------- */
 /* Router                                                                   */
 /* ---------------------------------------------------------------------- */
-const TITLES = {home:'Heita', search:'Search', activity:'Activity', profile:'Profile', pulse:'Pulse', communities:'Communities', lists:'Lists', studio:'Creator Studio', settings:'Settings'};
+const TITLES = {home:'Heita', search:'Search', activity:'Activity', profile:'Profile', pulse:'Pulse', communities:'Communities', lists:'Lists', studio:'Creator Studio', settings:'Settings', routes:'Routes'};
 let currentTab = 'home';
 let currentSub = {}; // e.g. {profileTab:'threads', profileUserId, communityId, listId}
 
@@ -192,11 +216,12 @@ function route(tab, extra){
     home: renderHome, search: renderSearch, activity: renderActivity,
     profile: ()=>renderProfile(extra&&extra.profileUserId || meId()),
     pulse: renderPulse, communities: renderCommunities, lists: renderLists,
-    studio: renderStudio, settings: renderSettings,
+    studio: renderStudio, settings: renderSettings, routes: renderRoutes,
   };
   main.innerHTML = (renderers[tab]||renderHome)();
   closeMore();
   refreshRailDot();
+  if(tab==='routes') initRouteMap();
 }
 function refreshRailDot(){
   const unread = state.notifications.filter(n=>!n.read).length;
@@ -359,6 +384,7 @@ function renderProfile(userId){
   `;
 }
 state.follows = state.follows || {};
+state.hazards = state.hazards || seedHazards(state.users);
 function followed(uid){ return !!state.follows[uid]; }
 
 /* ---------------- Phase 3: Pulse (real-time trending) ------------------ */
@@ -441,6 +467,246 @@ function listFeedHTML(lid){
   const posts = state.posts.filter(p=>l.memberIds.includes(p.authorId) && !p.replyTo).sort((a,b)=>b.createdAt-a.createdAt);
   return `<div class="section-title">${esc(l.name)}</div>
   ${posts.map(p=>postCardHTML(p)).join('') || `<div class="empty">Nobody on this list has posted yet.</div>`}`;
+}
+
+/* ---------------- Routes: directions + community hazard reports --------- */
+// Real geocoding/routing, no API key: OpenStreetMap's Nominatim (search) and
+// the OSRM public demo server (routing). Both are free public demo
+// instances meant for light/prototype use, not production traffic — see
+// README for the caveat. Hazards are the same "mocked multi-user" pattern
+// as the rest of the app: seeded reports + anything you submit locally.
+const JHB_CENTER = {lat:-26.2041, lng:28.0473};
+const HAZARD_TYPES = [
+  {id:'police', label:'Police', emoji:'🚓'},
+  {id:'accident', label:'Accident', emoji:'💥'},
+  {id:'hazard', label:'Road hazard', emoji:'⚠️'},
+  {id:'disaster', label:'Disaster', emoji:'🌊'},
+];
+function hazardMeta(type){ return HAZARD_TYPES.find(h=>h.id===type) || HAZARD_TYPES[2]; }
+function hazardBadgeHTML(type, cls){ return `<div class="hazard-badge ${type} ${cls||''}">${hazardMeta(type).emoji}</div>`; }
+
+// Ephemeral (not persisted) — survives across re-renders within a session
+// via module scope, but a hard refresh starts clean, same as the map itself.
+const routeState = { currentText:'', destText:'', currentCoord:null, destCoord:null, lastRoute:null, pickCategory:null, reportCoord:null, map:null };
+
+function renderRoutes(){
+  return `
+  <div class="section-title">Routes</div>
+  <div class="phase-note">Real directions (OpenStreetMap/OSRM) plus hazard reports from other Heita users — police, accidents, road hazards, and disasters plotted on your route. Demo routing/geocoding backend: fine for trying this out, not built for production traffic.</div>
+  <div class="route-form">
+    <div class="route-field-row">
+      <input class="field" id="routeFrom" placeholder="Current location" value="${esc(routeState.currentText)}">
+      <button class="loc-btn" data-action="use-my-location" title="Use my location"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    </div>
+    <div class="route-field-row">
+      <input class="field" id="routeTo" placeholder="Where to?" value="${esc(routeState.destText)}">
+      <button class="pill solid" data-action="get-directions" style="flex:none">Go</button>
+    </div>
+  </div>
+  <div id="routeSummary" class="route-summary ${routeState.lastRoute?'':'hidden'}">
+    ${routeState.lastRoute?`<span><b>${routeState.lastRoute.distanceKm.toFixed(1)} km</b> route</span><span><b>${Math.round(routeState.lastRoute.durationMin)} min</b> drive</span>`:''}
+  </div>
+  <div id="routeMap"></div>
+  <div class="hazard-legend">
+    ${HAZARD_TYPES.map(h=>`<div class="hazard-legend-item">${hazardBadgeHTML(h.id)}${h.label}</div>`).join('')}
+  </div>
+  <div style="padding:12px 16px 0"><button class="pill solid" style="width:100%" data-action="open-report-hazard">Report a hazard</button></div>
+  <div class="section-title" style="font-size:16px;padding:16px 16px 4px">${routeState.lastRoute?'On your route':'Recent reports nearby'}</div>
+  <div id="hazardList">${renderHazardListHTML(currentHazardList())}</div>
+  `;
+}
+
+function currentHazardList(){
+  if(routeState.lastRoute) return nearbyHazards(routeState.lastRoute.coords, 0.6);
+  return state.hazards.slice().sort((a,b)=>b.createdAt-a.createdAt);
+}
+
+function renderHazardListHTML(list){
+  if(!list.length) return `<div class="empty">${routeState.lastRoute?'No reports along this route right now.':'No reports yet — be the first.'}</div>`;
+  return list.map(h=>{
+    const author = userOf(h.authorId);
+    return `<div class="hazard-item">
+      ${hazardBadgeHTML(h.type)}
+      <div class="hazard-body">
+        <div class="hazard-type">${esc(hazardMeta(h.type).label)}</div>
+        ${h.note?`<div class="hazard-note">${esc(h.note)}</div>`:''}
+        <div class="hazard-meta">${author?esc(author.name):'A Heita user'} · ${timeAgo(h.createdAt)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function haversineKm(lat1,lon1,lat2,lon2){
+  const R=6371, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function nearbyHazards(routeCoords, thresholdKm){
+  return state.hazards.filter(h=>
+    routeCoords.some(([lat,lng])=>haversineKm(h.lat,h.lng,lat,lng) < thresholdKm)
+  ).sort((a,b)=>b.createdAt-a.createdAt);
+}
+
+function initRouteMap(){
+  if(typeof L === 'undefined'){
+    document.getElementById('routeMap').innerHTML = '<div class="empty">Map failed to load (offline?).</div>';
+    return;
+  }
+  // main.innerHTML gets replaced on every route() call, which detaches the
+  // previous map's container without giving Leaflet a chance to tear down
+  // its internal listeners/timers — remove() first avoids leaking those.
+  if(routeState.map){ routeState.map.remove(); routeState.map = null; }
+  const map = L.map('routeMap', {attributionControl:true}).setView([JHB_CENTER.lat, JHB_CENTER.lng], 12);
+  routeState.map = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© OpenStreetMap contributors'
+  }).addTo(map);
+
+  routeState.hazardLayer = L.layerGroup().addTo(map);
+  plotHazards();
+
+  routeState.reportMarker = null;
+  map.on('click', e=>{
+    routeState.reportCoord = {lat:e.latlng.lat, lng:e.latlng.lng};
+    if(routeState.reportMarker) map.removeLayer(routeState.reportMarker);
+    routeState.reportMarker = L.marker([e.latlng.lat, e.latlng.lng], {opacity:.8}).addTo(map);
+    toast('Pin dropped — tap "Report a hazard" to use this spot');
+  });
+
+  if(routeState.lastRoute) drawRoute(routeState.lastRoute.coords, false);
+}
+
+function divIcon(html, size){
+  return L.divIcon({html, className:'', iconSize:[size,size], iconAnchor:[size/2,size/2]});
+}
+function plotHazards(){
+  if(!routeState.hazardLayer) return;
+  routeState.hazardLayer.clearLayers();
+  state.hazards.forEach(h=>{
+    const meta = hazardMeta(h.type);
+    const icon = divIcon(`<div class="hazard-badge ${h.type}" style="box-shadow:0 1px 4px rgba(0,0,0,.4)">${meta.emoji}</div>`, 30);
+    const author = userOf(h.authorId);
+    L.marker([h.lat, h.lng], {icon}).addTo(routeState.hazardLayer)
+      .bindPopup(`<b>${esc(meta.label)}</b><br>${esc(h.note||'')}<br><small>${author?esc(author.name):'Heita user'} · ${timeAgo(h.createdAt)}</small>`);
+  });
+}
+
+function drawRoute(coords, fit){
+  if(!routeState.map) return;
+  if(routeState.routeLine) routeState.map.removeLayer(routeState.routeLine);
+  routeState.routeLine = L.polyline(coords, {color:'#E8590C', weight:5, opacity:.9}).addTo(routeState.map);
+  if(fit!==false) routeState.map.fitBounds(routeState.routeLine.getBounds(), {padding:[24,24]});
+}
+
+async function geocode(query){
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=za&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('geocode failed');
+  const results = await res.json();
+  if(!results.length) return null;
+  return {lat:parseFloat(results[0].lat), lng:parseFloat(results[0].lon), label:results[0].display_name};
+}
+async function reverseGeocode(lat,lng){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+    const res = await fetch(url);
+    const d = await res.json();
+    return d.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }catch(e){ return `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
+}
+async function fetchRoute(from, to){
+  const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('route failed');
+  const data = await res.json();
+  if(!data.routes || !data.routes.length) return null;
+  const r = data.routes[0];
+  return {
+    coords: r.geometry.coordinates.map(([lng,lat])=>[lat,lng]),
+    distanceKm: r.distance/1000,
+    durationMin: r.duration/60,
+  };
+}
+
+function useMyLocation(){
+  if(!navigator.geolocation){ toast('Geolocation not available in this browser'); return; }
+  toast('Finding your location…');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const {latitude, longitude} = pos.coords;
+    routeState.currentCoord = {lat:latitude, lng:longitude};
+    const label = await reverseGeocode(latitude, longitude);
+    routeState.currentText = label;
+    const input = document.getElementById('routeFrom');
+    if(input) input.value = label;
+    toast('Location set');
+  }, err=>{
+    toast('Could not get your location (permission denied?)');
+  }, {timeout:8000});
+}
+
+async function getDirections(){
+  const fromText = document.getElementById('routeFrom').value.trim();
+  const toText = document.getElementById('routeTo').value.trim();
+  routeState.currentText = fromText;
+  routeState.destText = toText;
+  if(!fromText || !toText){ toast('Enter both a current location and a destination'); return; }
+  toast('Getting directions…');
+  try{
+    const from = routeState.currentCoord && fromText===routeState.currentText ? routeState.currentCoord : await geocode(fromText);
+    const to = await geocode(toText);
+    if(!from || !to){ toast('Could not find one of those locations'); return; }
+    routeState.currentCoord = from; routeState.destCoord = to;
+    const route = await fetchRoute(from, to);
+    if(!route){ toast('No route found between those points'); return; }
+    routeState.lastRoute = route;
+    drawRoute(route.coords, true);
+    document.getElementById('routeSummary').classList.remove('hidden');
+    document.getElementById('routeSummary').innerHTML = `<span><b>${route.distanceKm.toFixed(1)} km</b> route</span><span><b>${Math.round(route.durationMin)} min</b> drive</span>`;
+    document.querySelector('.section-title[style*="font-size:16px"]').textContent = 'On your route';
+    document.getElementById('hazardList').innerHTML = renderHazardListHTML(currentHazardList());
+    toast('Route found');
+  }catch(e){
+    toast('Routing service unavailable — try again in a moment');
+  }
+}
+
+function openReportHazard(){
+  routeState.pickCategory = null;
+  openModal(`
+    <div class="modal">
+      <div class="modal-head"><button class="close-btn" data-action="close-modal">Cancel</button><div class="modal-title">Report a hazard</div><span style="width:50px"></span></div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-top:0">Tap the map behind this to drop a pin at the right spot, or leave it at your current view.</p>
+        <div class="category-pick" id="categoryPick">
+          ${HAZARD_TYPES.map(h=>`<button data-action="pick-category" data-cat="${h.id}">${hazardBadgeHTML(h.id)}${esc(h.label)}</button>`).join('')}
+        </div>
+        <textarea class="field" id="hazardNote" placeholder="What's going on? (optional)" style="min-height:60px"></textarea>
+        <button class="pill solid" style="width:100%;margin-top:12px" data-action="submit-hazard-report">Submit report</button>
+      </div>
+    </div>`);
+}
+function pickCategory(cat, el){
+  routeState.pickCategory = cat;
+  document.querySelectorAll('#categoryPick button').forEach(b=>b.classList.toggle('picked', b.dataset.cat===cat));
+}
+function submitHazardReport(){
+  if(!routeState.pickCategory){ toast('Pick a category first'); return; }
+  const note = document.getElementById('hazardNote').value.trim();
+  const coord = routeState.reportCoord || (routeState.map ? routeState.map.getCenter() : JHB_CENTER);
+  state.hazards.unshift({
+    id:'hz'+Date.now(), type:routeState.pickCategory,
+    lat: coord.lat, lng: coord.lng, note,
+    authorId: meId(), createdAt: Date.now(),
+  });
+  save();
+  closeModal();
+  routeState.reportCoord = null;
+  if(routeState.reportMarker && routeState.map){ routeState.map.removeLayer(routeState.reportMarker); routeState.reportMarker = null; }
+  plotHazards();
+  const list = document.getElementById('hazardList');
+  if(list) list.innerHTML = renderHazardListHTML(currentHazardList());
+  toast('Hazard reported — thanks for the heads up');
 }
 
 /* ---------------- Phase 2: Creator Studio / monetization ---------------- */
@@ -690,6 +956,7 @@ function toggleMore(){
     <div class="modal" style="max-width:340px">
       <div class="modal-head"><div class="modal-title">More</div><button class="close-btn" data-action="close-more">Close</button></div>
       <div class="modal-body" style="padding:8px 0">
+        ${moreRow('routes','🧭','Routes','Directions & road hazards')}
         ${moreRow('pulse','⚡','Pulse','Real-time trending')}
         ${moreRow('communities','🌐','Communities','Topic spaces')}
         ${moreRow('lists','📋','Lists','Curated feeds')}
@@ -817,6 +1084,11 @@ document.body.addEventListener('click', e=>{
     case 'toggle-federation': state.settings.portableIdentity = el.checked; save(); toast(el.checked?'Federation enabled (concept only — no real ActivityPub server)':'Federation disabled'); break;
     case 'gen-key': state.settings.apiKey = 'tk_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); save(); route('settings'); break;
     case 'reset-proto': resetProto(); break;
+    case 'use-my-location': useMyLocation(); break;
+    case 'get-directions': getDirections(); break;
+    case 'open-report-hazard': openReportHazard(); break;
+    case 'pick-category': pickCategory(el.dataset.cat, el); break;
+    case 'submit-hazard-report': submitHazardReport(); break;
   }
 });
 document.body.addEventListener('input', e=>{

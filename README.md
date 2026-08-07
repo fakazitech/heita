@@ -45,6 +45,11 @@ exercise, not a clearance.
   payouts, and API keys are all simulated client-side; nothing charges a
   card or calls a real endpoint. Federation (ActivityPub/AT Proto) is a
   labelled toggle, not a live connection to the fediverse.
+- **Routes is a mix:** geocoding and turn-by-turn directions are *real*
+  calls to public services (OpenStreetMap's Nominatim + the OSRM demo
+  server — see Phase 4 below). Hazard reports are the same mocked-
+  multi-user pattern as everything else: seeded pins plus whatever you
+  submit locally, not synced to other people's browsers.
 - Reset the prototype anytime from **Settings → Reset prototype data**.
 
 ## Phase 1 — like-for-like recreation (the starting point)
@@ -89,9 +94,37 @@ Everything here is new relative to the app this was cloned from:
 - **Keyboard-driven power use** — `j`/`k` to move through the feed, `l`
   to like, `r` to reply, `n` for a new thread.
 
+## Phase 4 — Routes: directions + community hazard reports
+
+Not part of the original Threads-teardown scope — added on top once the
+app had its own identity, closer to a Waze-style layer than anything
+Threads (or Instagram) has ever done:
+
+- **Real geocoding and driving directions.** Typing a destination and
+  current location calls OpenStreetMap's Nominatim (search) and the OSRM
+  public demo routing server — actual road-network routes, not fake data.
+  Both are free, keyless, public demo instances meant for light/prototype
+  traffic; don't point real production load at them.
+- **A live Leaflet map** (OpenStreetMap tiles, no API key) showing the
+  route and every hazard pin.
+- **Hazard reports** — police, accidents, road hazards, and disasters,
+  seeded around Johannesburg plus anything you report. Reporting drops a
+  pin at your last map click (or the current map center), picks a
+  category, and an optional note.
+- **Route-aware filtering** — once you've got directions, the hazard list
+  below the map narrows to reports within ~600m of your actual route
+  (haversine distance to the nearest point on the route line), instead of
+  just "everything nearby."
+- **"Use my location"** via the browser's Geolocation API, reverse-
+  geocoded into a readable address.
+
 ## Open next steps
 
 This is a client-only prototype. Turning it into a real product means, in
 rough order: a real backend + auth, a real payments integration for
 Pro/tips/subscriptions, a real ActivityPub server for federation instead
-of a toggle, and a rate-limited public API instead of a generated string.
+of a toggle, a rate-limited public API instead of a generated string, and
+for Routes specifically — a paid geocoding/routing provider (Mapbox,
+Google, HERE) instead of the demo OSRM/Nominatim endpoints, plus a real
+backend so hazard reports sync across users instead of living in one
+browser's `localStorage`.
