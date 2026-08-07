@@ -569,6 +569,27 @@ function haversineKm(lat1,lon1,lat2,lon2){
   const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
+
+// --- Location privacy -----------------------------------------------------
+// Anything that becomes visible to *other* people (a hazard pin, a location
+// chip on a post) gets a randomized offset and a coarsened label before it's
+// stored — never the real GPS fix. Precise coordinates only ever live in
+// routeState, in memory, for computing *your own* route; they're never
+// written into state.hazards or a post. Applied once at creation time (not
+// re-randomized per render), so a given report stays put across reloads.
+function fuzzCoord(lat, lng, radiusKm){
+  radiusKm = radiusKm || 0.3;
+  const dLat = (Math.random()-0.5) * 2 * (radiusKm/111);
+  const dLng = (Math.random()-0.5) * 2 * (radiusKm/(111*Math.cos(lat*Math.PI/180)));
+  return {lat: lat+dLat, lng: lng+dLng};
+}
+// Reverse-geocoded addresses come back most-specific-first ("12 Oak Ave,
+// Sandton, Johannesburg, ..."); drop the street-level segment so a shared
+// label reads as an area, not an address.
+function generalizeLabel(label){
+  const parts = (label||'').split(',').map(s=>s.trim()).filter(Boolean);
+  return parts.length > 2 ? parts.slice(1,3).join(', ') : (label||'that area');
+}
 function nearbyHazards(routeCoords, thresholdKm){
   return state.hazards.filter(h=>
     routeCoords.some(([lat,lng])=>haversineKm(h.lat,h.lng,lat,lng) < thresholdKm)
@@ -784,7 +805,7 @@ function openReportHazard(){
     <div class="modal">
       <div class="modal-head"><button class="close-btn" data-action="close-modal">Cancel</button><div class="modal-title">Report a hazard</div><span style="width:50px"></span></div>
       <div class="modal-body">
-        <p style="font-size:13px;color:var(--text-secondary);margin-top:0">Tap the map behind this to drop a pin at the right spot, or leave it at your current view.</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin-top:0">Tap the map behind this to drop a pin at the right spot, or leave it at your current view. Reports show an approximate area, never your exact GPS position.</p>
         <div class="category-pick" id="categoryPick">
           ${HAZARD_TYPES.map(h=>`<button data-action="pick-category" data-cat="${h.id}">${hazardBadgeHTML(h.id)}${esc(h.label)}</button>`).join('')}
         </div>
@@ -805,7 +826,10 @@ function submitHazardReport(){
   if(!routeState.pickCategory){ toast('Pick a category first'); return; }
   const note = document.getElementById('hazardNote').value.trim();
   const shareToFeed = document.getElementById('shareHazardToFeed')?.checked;
-  const coord = routeState.reportCoord || (routeState.map ? routeState.map.getCenter() : JHB_CENTER);
+  const rawCoord = routeState.reportCoord || (routeState.map ? routeState.map.getCenter() : JHB_CENTER);
+  // Fuzzed once here, at the point a location first becomes visible to
+  // other people — the exact tap/GPS point is never stored.
+  const coord = fuzzCoord(rawCoord.lat, rawCoord.lng, 0.15);
   const meta = hazardMeta(routeState.pickCategory);
   state.hazards.unshift({
     id:'hz'+Date.now(), type:routeState.pickCategory,
@@ -960,9 +984,10 @@ function openCompose(replyTo){
         </div>
         ${(!root && routeState.lastRoute)?`
         <label class="row-flex" style="cursor:pointer">
-          <span style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:16px">📍</span>${esc(routeState.currentText)} → ${esc(routeState.destText)} · ${routeState.lastRoute.distanceKm.toFixed(1)} km</span>
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:16px">📍</span>${esc(generalizeLabel(routeState.currentText))} → ${esc(generalizeLabel(routeState.destText))} · ${routeState.lastRoute.distanceKm.toFixed(1)} km</span>
           <input type="checkbox" id="attachRouteToggle">
-        </label>`:''}
+        </label>
+        <div class="row-desc" style="margin:-4px 0 4px">Shown as an approximate area, not your exact address.</div>`:''}
         <div class="compose-foot">
           <span class="post-time">Open to replies</span>
           <button class="pill solid" data-action="submit-compose" data-reply="${root?root.id:''}">Post</button>
@@ -975,9 +1000,13 @@ function submitCompose(replyTo){
   const text = document.getElementById('composeInput').value.trim();
   if(!text) return;
   const attachToggle = document.getElementById('attachRouteToggle');
+  // Same rule as hazard reports: fuzz + generalize at the moment a location
+  // becomes part of a public post. routeState itself keeps the precise
+  // coordinates for your own routing — only this copy, on the post, is coarsened.
   const location = (!replyTo && attachToggle && attachToggle.checked && routeState.lastRoute) ? {
-    kind:'route', label:`${routeState.currentText} → ${routeState.destText}`,
-    fromCoord: routeState.currentCoord, toCoord: routeState.destCoord,
+    kind:'route', label:`${generalizeLabel(routeState.currentText)} → ${generalizeLabel(routeState.destText)}`,
+    fromCoord: fuzzCoord(routeState.currentCoord.lat, routeState.currentCoord.lng, 0.5),
+    toCoord: fuzzCoord(routeState.destCoord.lat, routeState.destCoord.lng, 0.3),
     distanceKm: routeState.lastRoute.distanceKm, durationMin: routeState.lastRoute.durationMin,
   } : null;
   const p = {id:'p'+Date.now(), authorId: meId(), text, createdAt: Date.now(), likes:[], reposts:[], replyTo: replyTo||null, image:false, tag:null, location};

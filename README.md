@@ -127,6 +127,35 @@ Threads (or Instagram) has ever done:
   reverse: an "Also share to feed" checkbox posts about it with a chip
   linking back to that spot on the map.
 
+### Location privacy
+
+Anything visible to *other* people — a hazard pin, a location chip on a
+post — is never your exact GPS fix:
+
+- **Coordinates are randomly offset** before they're ever written to
+  `state.hazards` or a post (~150m for hazard reports, ~300–500m for a
+  route attached to a post — the "current location" leg gets the wider
+  radius since it's the one most likely to be someone's home). The offset
+  is applied once, at the moment a report or post is created, and that
+  fuzzed point is what's stored — not re-randomized on every render, so a
+  given report stays visually put across reloads instead of jittering.
+- **Labels drop the street-level detail.** A reverse-geocoded "12 Oak Ave,
+  Morningside, Sandton, Johannesburg" becomes "Morningside, Sandton" on
+  anything public — `generalizeLabel()` in `app.js`.
+- **Precision is kept only for your own routing.** `routeState` holds the
+  real coordinates in memory so *your* directions and *your* "use my
+  location" button work properly — that precision just never leaves
+  `routeState` into anything persisted or shown to anyone else.
+- The report/compose UI says so explicitly in the moment it matters
+  ("Reports show an approximate area, never your exact GPS position"),
+  rather than a buried settings toggle nobody reads.
+
+This is a reasonable default for a prototype, not a substitute for real
+review before handling real users' real locations — a production version
+would want this configurable (radius, opt-out) and probably a
+server-side fuzz (a client-side offset is honest-user-only; a modified
+client could skip it), not just a client-side one.
+
 ## Open next steps
 
 This is a client-only prototype. Turning it into a real product means, in
