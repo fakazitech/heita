@@ -535,7 +535,7 @@ function renderSettings(){
     <div class="shortcut-row"><span>Like focused post</span><span class="kbd">l</span></div>
     <div class="shortcut-row"><span>Reply to focused post</span><span class="kbd">r</span></div>
     <div class="shortcut-row"><span>Open focused post</span><span class="kbd">Enter</span></div>
-    <div class="shortcut-row"><span>New thread</span><span class="kbd">n</span></div>
+    <div class="shortcut-row"><span>New post</span><span class="kbd">n</span></div>
   </div>
 
   <div class="studio-block">
@@ -560,7 +560,7 @@ function openCompose(replyTo){
     <div class="modal">
       <div class="modal-head">
         <button class="close-btn" data-action="close-modal">Cancel</button>
-        <div class="modal-title">${root?'Reply':'New thread'}</div>
+        <div class="modal-title">${root?'Reply':'New post'}</div>
         <span style="width:50px"></span>
       </div>
       <div class="modal-body">
@@ -568,11 +568,11 @@ function openCompose(replyTo){
         <div class="compose-row">
           ${avatarHTML(me)}
           <div class="compose-text">
-            <textarea id="composeInput" placeholder="${root?'Reply to '+userOf(root.authorId).name:"What's new?"}" autofocus></textarea>
+            <textarea id="composeInput" placeholder="${root?'Reply to '+userOf(root.authorId).name:"Say something"}" autofocus></textarea>
           </div>
         </div>
         <div class="compose-foot">
-          <span class="post-time">Anyone can reply</span>
+          <span class="post-time">Open to replies</span>
           <button class="pill solid" data-action="submit-compose" data-reply="${root?root.id:''}">Post</button>
         </div>
       </div>
