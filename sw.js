@@ -1,4 +1,4 @@
-const CACHE = 'heita-v1';
+const CACHE = 'heita-v2';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', e=>{
