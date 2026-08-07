@@ -4,7 +4,11 @@ A standalone prototype: a like-for-like recreation of Meta's Threads,
 plus a monetization layer and the product differentiators that would make
 it a standalone app instead of an Instagram appendage.
 
-**Live demo:** https://fakazitech.github.io/threads/ *(deploys automatically from `main` via GitHub Actions)*
+**Live demo:** https://fakazitech.github.io/threads/ *(GitHub Pages, deployed from the `main` branch)*
+
+See [`CONCEPT.md`](CONCEPT.md) for the market/product analysis this build
+is based on — why Threads' potential is real, where it's actually missing
+things, and where a new entrant could win.
 
 No build step, no framework, no backend — open `index.html` and it runs.
 Run it locally: `python3 -m http.server 8080`, then open `localhost:8080`.
